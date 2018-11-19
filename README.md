@@ -1,6 +1,18 @@
 # Net2axis
 Verilog network module for simulation. Models network traffic from pcap to AXI-Stream
 
+Table of Contents
+=================
+
+   * [Net2axis](#net2axis)
+      * [Introduction](#introduction)
+      * [Why use net2axis ?](#why-use-net2axis-)
+      * [Dependencies](#dependencies)
+      * [Usage](#usage)
+         * [Verilog module instantiation](#verilog-module-instantiation)
+         * [net2axis.py tool](#net2axispy-tool)
+      * [Running](#running)
+
 ## Introduction
 Net2axis is a **simulation-only** Verilog module that generates Master
 AXI-Stream transactions from network packets described in packet capture files
