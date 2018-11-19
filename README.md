@@ -5,13 +5,15 @@ Table of Contents
 =================
 
    * [Net2axis](#net2axis)
+   * [Table of Contents](#table-of-contents)
       * [Introduction](#introduction)
       * [Why use net2axis ?](#why-use-net2axis-)
       * [Dependencies](#dependencies)
       * [Usage](#usage)
          * [Verilog module instantiation](#verilog-module-instantiation)
          * [net2axis.py tool](#net2axispy-tool)
-      * [Running](#running)
+      * [Usage example](#usage-example)
+      * [Testbench](#testbench)
 
 ## Introduction
 Net2axis is a **simulation-only** Verilog module that generates Master
@@ -53,11 +55,11 @@ The provided testbed project example depends on Xilinx Vivado (tested on version
 tools as well. 
 
 ## Usage
-
 In a glance, net2axis is formed by two component:
 
 * A python script (`tool/net2axis.py`)
-* A verilog module (`hdl/net2axis.v`), which models network IP cores.
+* A verilog module (`hdl/net2axis.v`), which models network IP cores and
+  generates Master AXI-Stream transactions.
 
 The following picture shows the net2axis workflow:
 
@@ -86,12 +88,12 @@ parameters and ports are:
   * `DONE`: Active-high **done** signal. Goes high when after the last packet is
     transmitted, i.e., the model reaches the end of DATA file.
 	
-See `sim/net2axis_tb.v` as example.
+See `sim/net2axis_tb.v` as an instantiation example.
 
 ### `net2axis.py` tool
 The `net2axis.py` script has the following command line options:
 
-```
+```bash
 $ ./tool/net2axis.py -help
 usage: net2axis.py [-h] [-w [DATAWIDTH]] [-i [INITDELAY]] [-d [DELAY]]
                    [-e [ENDIANNESS]]
@@ -112,7 +114,7 @@ optional arguments:
                         Set endianness
 ```
 
-Options:
+Where:
 * `-w` : Set the TDATA bus width in bits. Default: 32
 * `-i` : Set initial delay (in clock cycles), i.e., first packet's
   delay. Default: 0
@@ -122,12 +124,43 @@ Options:
 The output DATA file will be the same name of input PCAP file, however with
 `.dat` extension.
 
-## Running
-First of all, clone the repository and `cd` to it. Then, set exec permission on `net2axis.py`:
+## Usage example
+First of all, clone the repository and `cd` to it and set exec permission on
+`net2axis.py` script:
 
-```
+```bash
 $ chmod +x tool/net2axis.py
 ```
+
+Having cloned the repository in `/home/user/net2axis` and using a PCAP file, say
+`tcp.pcap`, generate the intermediate file `tcp.dat`
+using `TDATA` width of 32 bits:
+
+```bash
+$ ./tool/net2axis.py tcp.pcap
+```
+
+Finally, instantiate `net2axis` module in your Verilog code using (preferably) the absolute path to
+the intermediate file as argument of `C_INPUTFILE` parameter:
+
+```verilog
+    net2axis #(
+        .C_INPUTFILE      ("/home/user/net2axis/tcp.dat"),
+        .C_TDATA_WIDTH    (C_TDATA_WIDTH   )
+        ) net2axis_0 (
+        .ACLK             (ACLK            ),
+        .ARESETN          (ARESETN         ),
+        .DONE             (DONE            ),
+        .M_AXIS_TVALID    (M_AXIS_TVALID   ),
+        .M_AXIS_TDATA     (M_AXIS_TDATA    ),
+        .M_AXIS_TKEEP     (M_AXIS_TKEEP    ),
+        .M_AXIS_TLAST     (M_AXIS_TLAST    ),
+        .M_AXIS_TREADY    (M_AXIS_TREADY   ));
+```
+
+**That's all folks!!**
+
+## Testbench
 
 A simple testbench is provided in the project to show how to used it. A TCL
 `tcl/net2axis_sim.tcl` script creates a Vivado project and simulates using a
