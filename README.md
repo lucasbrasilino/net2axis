@@ -10,6 +10,8 @@ Table of Contents
       * [Why use net2axis ?](#why-use-net2axis-)
       * [Dependencies](#dependencies)
       * [Usage](#usage)
+         * [Building IP for Vivado's IP Integrator (IPI)](#building-ip-for-vivados-ip-integrator-ipi)
+            * [Vivado's block design](#vivados-block-design)
          * [Verilog module instantiation](#verilog-module-instantiation)
          * [net2axis.py tool](#net2axispy-tool)
       * [Usage example](#usage-example)
@@ -61,6 +63,9 @@ In a glance, net2axis is formed by two component:
 * A verilog module (`hdl/net2axis.v`), which models network IP cores and
   generates Master AXI-Stream transactions.
 
+For the verilog module there are two options: package net2axis module as an
+(Vivado's) IP, or instantiate it in RTL. Both options will be covered latter on.
+
 The following picture shows the net2axis workflow:
 
 ```
@@ -73,6 +78,58 @@ The following picture shows the net2axis workflow:
 
 The input PCAP file read by the `net2axis.py` that generates a intermediate DATA
 file, which filename should be configured in the `C_INPUTFILE` parameter of `net2axis.v`.
+
+### Building IP for Vivado's IP Integrator (IPI)
+For using net2axis in IPI, you need just to execute:
+
+```bash
+$ make ip
+```
+And add the current directory as an IP repository in your project. You can do it
+graphically (check Vivado's docs) or running the follwing TCL command in
+Vivado's TCL console/prompt.
+
+```tcl
+set_property  ip_repo_paths  [pwd] [current_project]
+update_ip_catalog -rebuild 
+```
+
+If the Vivado's current directory is the net2axis directory, **or** 
+having cloned, for instance, the repository in `/home/user/net2axis`:
+
+```tcl
+set_property  ip_repo_paths /home/user/net2axis [current_project]
+update_ip_catalog -rebuild 
+```
+
+You should now be able to instantiate a net2axis IP in IPI, that looks like:
+
+![Net2axis IP](figs/IP_1.jpg)
+
+Finally, a DATA file must be configured in the net2axis IP. Right-click over it,
+select `Customize Block` and add the (preferably) absolute path in the `C
+Inputfile` field, or execute:
+
+```tcl
+set_property CONFIG.C_INPUTFILE {/home/user/net2axis/arp.dat} [get_bd_cells net2axis_0]
+```
+
+#### Vivado's block design
+This is not mandatory, but for convenience the `tcl/net2axis_bd.tcl` script creates a entire block design, including a
+clock/reset generator. It will be just necessary to create a HDL wrapper an then
+instantiate that wrapper in a testbench and connect **your** design to it.
+
+In Vivado's TCL console/prompt, with a project already created, just run:
+
+```tcl
+source tcl/net2axis_bd.tcl
+```
+
+And the following Block design will be created:
+
+![Net2axis Block Design](figs/BD_1.jpg)
+
+And don't forget to configure DATA file, as described earlier.
 
 ### Verilog module instantiation
 It is pretty straightforward to instantiate the net2axis verilog module. Its
