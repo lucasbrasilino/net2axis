@@ -146,7 +146,6 @@ the intermediate file as argument of `C_INPUTFILE` parameter:
 ```verilog
     net2axis #(
         .C_INPUTFILE      ("/home/user/net2axis/tcp.dat"),
-        .C_TDATA_WIDTH    (C_TDATA_WIDTH   )
         ) net2axis_0 (
         .ACLK             (ACLK            ),
         .ARESETN          (ARESETN         ),
