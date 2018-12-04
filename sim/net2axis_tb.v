@@ -13,12 +13,15 @@
     `define DATAFILE ""
 `endif
 
+`define TO_STRING(s) `"s`"
+
 module net2axis_tb;
 
     localparam C_TDATA_WIDTH = 32;
 
     localparam HALF_CORE_PERIOD = 5; // 100Mhz
     localparam PERIOD = HALF_CORE_PERIOD*2;
+    localparam INPUTFILE = `TO_STRING(`DATAFILE);
 
     reg                             ACLK;
     reg                             ARESETN;
@@ -59,7 +62,7 @@ module net2axis_tb;
     end
 
     net2axis #(
-        .C_INPUTFILE      (`"`DATAFILE`"),
+        .C_INPUTFILE      (INPUTFILE),
         .C_TDATA_WIDTH    (C_TDATA_WIDTH   )
         ) net2axis (
         .ACLK             (ACLK            ),
