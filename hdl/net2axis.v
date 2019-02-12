@@ -10,7 +10,7 @@
  **********************************************************************************/
 
 `define MD_MARKER 8'h4d
-
+`define NULL 0
 module net2axis #(
         parameter           C_INPUTFILE           = "",
         parameter           C_TDATA_WIDTH         = 32
@@ -51,6 +51,8 @@ module net2axis #(
     wire                            delay_counter_exp;
     reg                             eof;
     wire                            read_pkt_data_en;
+    integer                         errno;
+    reg  [1024:0]                   strerr;
 
     reg [STATE_WIDTH-1:0]            state, state_next;
     reg                              done;
@@ -80,11 +82,17 @@ module net2axis #(
     initial begin
         $timeformat(-9, 2, " ns", 20);
         if (C_INPUTFILE == "") begin
-            $display("Erro: inputfile NULL!");
+            $display("File opening error: inputfile NULL!");
             $finish;
         end
-        else
+        else begin
             fd = $fopen(C_INPUTFILE,"r");
+            if (fd == `NULL) begin
+                errno = $ferror(fd,strerr);
+                $display("File opening error: errno=%d,strerr=%s",errno,strerr);
+                $finish;
+            end
+        end
     end
 
     initial begin
@@ -127,7 +135,7 @@ module net2axis #(
     end
 
     always @(posedge ACLK) begin : READ_FILE
-        if (~eof) begin
+        if ((fd != `NULL) && ~eof) begin
             if (M_AXIS_TREADY) begin
                 if (state == PREP_READ_MD) begin
                     ld = $fscanf(fd,"%c: pkt=%d, delay=%d",md_flag_file, pkt_id, delay_counter_val);

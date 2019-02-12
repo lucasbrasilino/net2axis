@@ -22,7 +22,7 @@ module net2axis_tb;
     localparam HALF_CORE_PERIOD = 5; // 100Mhz
     localparam PERIOD = HALF_CORE_PERIOD*2;
     localparam INPUTFILE = `TO_STRING(`DATAFILE);
-
+    localparam OUTPUTFILE = `TO_STRING(output.dat);
     reg                             ACLK;
     reg                             ARESETN;
 
@@ -30,7 +30,7 @@ module net2axis_tb;
     wire  [C_TDATA_WIDTH-1 : 0]     M_AXIS_TDATA;
     wire  [(C_TDATA_WIDTH/8)-1 : 0] M_AXIS_TKEEP;
     wire                            M_AXIS_TLAST;
-    reg                             M_AXIS_TREADY;
+    wire                            M_AXIS_TREADY;
     wire                            DONE;
 
     initial begin
@@ -47,12 +47,14 @@ module net2axis_tb;
         ARESETN = 1'b1;
     end
 
+    /*
     initial begin
         M_AXIS_TREADY = 1'b0;
         wait (ARESETN == 1'b1);
         #(PERIOD * 10);
         M_AXIS_TREADY = 1'b1;
     end
+*/
 
     initial begin
         wait (DONE == 1'b1);
@@ -73,5 +75,18 @@ module net2axis_tb;
         .M_AXIS_TKEEP     (M_AXIS_TKEEP    ),
         .M_AXIS_TLAST     (M_AXIS_TLAST    ),
         .M_AXIS_TREADY    (M_AXIS_TREADY   ));
+
+    net2axis_slave #(
+        .C_OUTPUTFILE   (OUTPUTFILE  ),
+        .C_TDATA_WIDTH  (C_TDATA_WIDTH )
+        ) net2axis_slave (
+        .ACLK           (ACLK          ),
+        .ARESETN        (ARESETN       ),
+        .DONE           (DONE          ),
+        .S_AXIS_TVALID  (M_AXIS_TVALID ),
+        .S_AXIS_TDATA   (M_AXIS_TDATA  ),
+        .S_AXIS_TKEEP   (M_AXIS_TKEEP  ),
+        .S_AXIS_TLAST   (M_AXIS_TLAST  ),
+        .S_AXIS_TREADY  (M_AXIS_TREADY ));
 
 endmodule
