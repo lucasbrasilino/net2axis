@@ -8,6 +8,8 @@
 
 import sys
 import logging
+from os.path import abspath,basename
+from pprint import pprint
 from binascii import hexlify
 
 try:
@@ -22,27 +24,29 @@ class Net2AXIS(object):
     END_LITTLE = 1
     endianness = {'big' : END_BIG, 'little' : END_LITTLE}
     
-    def __init__(self, pcapfile=None, **kwargs):    
-        self.pcapfile = pcapfile
-        self.datawidth = int(kwargs.pop('datawidth', 32))
-        self.keepwidth = int(self.datawidth/8)
-        self.extension = kwargs.pop('extension','dat')
-        _endianness = kwargs.pop('endianness','little')
-        self.endianness = self._check_endianness(_endianness)
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+        if not self.file:
+            raise ValueError("Input file not specified")
+        self.extension = 'pcap' if self.to_pcap else 'dat'
+        self.endianness = self._check_endianness(self.endianness)
         self.pkts = None
         self.parsed = list()
-        self.initdelay = kwargs.pop('initdelay',0);
-        self.delay = kwargs.pop('delay',10);
-        self.outputfile = self.pcapfile.split(".")[0]+"."+self.extension
+        self.outputfile = self.file.split(".")[0]+"."+self.extension
         try:
             self.of = open(self.outputfile,"w")
         except IOError as e:
             sys.stderr.write("Couldn't write file: {0}\n".format(e))
             sys.exit(1)
-        assert (not bool (kwargs)), "Illegal argument(s)"
 
-    def loadpcapfile (self):
-        self.pkts = rdpcap (self.pcapfile)
+    def loadfile (self):
+        if self.to_pcap:
+            self.lines = list()
+            with open (self.file) as file:
+                for line in file:
+                    self.lines.append(line.strip())
+        else:
+            self.pkts = rdpcap (self.file)
 
     def _check_endianness(self, _end):
         if not _end in Net2AXIS.endianness.keys():
@@ -65,11 +69,14 @@ class Net2AXIS(object):
         _tlast = ['0' for w in _tdata[:-1]]
         _tlast.append('1')
         return [_tdata[i]+','+_tkeep[i]+','+_tlast[i] for i in range(0,len(_tdata))]
-        
+
     def parse (self):
-        _num_pkts = len(self.pkts)
-        for p in self.pkts:
-            self.parsed.append(self._parsepkt(p))
+        if self.to_pcap:
+            print
+        else:
+            _num_pkts = len(self.pkts)
+            for p in self.pkts:
+                self.parsed.append(self._parsepkt(p))
 
     def output(self):
         for i in range (0, len(self.parsed)):
@@ -80,28 +87,30 @@ class Net2AXIS(object):
                 self.of.write("{0}\n".format(l))
 
     def run(self):
-        self.loadpcapfile()
+        self.loadfile()
         self.parse()
-        self.output()
-
+        #self.output()
 
 def parse_args():
     import argparse
     _opt = argparse.ArgumentParser()
-    _opt.add_argument ("pcapfile", default=None, help="Input PCAP file")
+    _opt.add_argument ("file", default=None, help="Input file")
     _opt.add_argument ("-w","--datawidth",help="Data bus width (in bits)",
-                       nargs="?",action="store")
+                       nargs="?",default=32, type=int, action="store")
     _opt.add_argument ("-i","--initdelay",help="Initial packet delay",
-                       nargs="?",action="store")
+                       nargs="?",default=0, type=int, action="store")
     _opt.add_argument ("-d","--delay",help="Inter packet delay",
-                       nargs="?",action="store")
+                       nargs="?",default=10, type=int, action="store")
     _opt.add_argument ("-e","--endianness",help="Set endianness",
-                       nargs="?",action="store")
+                       nargs="?",default="little", action="store")
+    _opt.add_argument ("-p","--to-pcap",help="Generate PCAP",
+                       action="store_true")
     _kw = vars(_opt.parse_args())
-    _file = _kw.pop("pcapfile")
+    _file = _kw.pop("file")
     return (_file, { k : _kw[k] for k in _kw if _kw[k] != None })
+    #return _opt.parse_args()
 
 if __name__ == '__main__':
-    (pcapfile,opts) = parse_args()
-    net = Net2AXIS(pcapfile=pcapfile,**opts)
+    file,opts = parse_args()
+    net = Net2AXIS(file=file,**opts)
     net.run()
