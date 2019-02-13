@@ -28,8 +28,9 @@ module net2axis_slave
         );
 
     localparam                      IDLE = 0;
-    localparam                      RD = 1;
-    localparam                      ADD_MD = 2;
+    localparam                      WR_MD = 1;
+    localparam                      RD = 2;
+    localparam                      ADD_MD = 3;
     localparam                      END = 4;
     localparam                      POST_WR = 5;
     localparam                      LAST = 6;
@@ -46,6 +47,7 @@ module net2axis_slave
     wire                              tvalid;
     wire                              tlast;
     reg                               tready;
+    reg  [15:0]                       pkt_id;
 
     assign tdata              = S_AXIS_TDATA;
     assign tkeep              = S_AXIS_TKEEP;
@@ -79,9 +81,9 @@ module net2axis_slave
         tready = 1'b0;
         case (state)
             IDLE: begin
-                tready = 1'b1;
-                state_next = (S_AXIS_TVALID) ? RD : IDLE;
+                state_next = (S_AXIS_TVALID) ? WR_MD : IDLE;
             end
+            WR_MD: state_next =(S_AXIS_TVALID) ? RD : WR_MD;
             RD: begin
                 tready = 1'b1;
                 state_next = (S_AXIS_TVALID && S_AXIS_TLAST) ? ADD_MD : RD;
@@ -99,6 +101,9 @@ module net2axis_slave
     end
 
     always @(posedge ACLK) begin : WRITE_FILE
+        if (fd && (state==WR_MD)) begin
+            if (S_AXIS_TVALID) $fwrite("M: packet=%d delay=10",pkt_id);
+        end
         if (fd && S_AXIS_TVALID  && (state==IDLE)) begin
             $fwrite(fd, "%x,%x,%x\n",tdata,tkeep,tlast);
             #1 $display("[%0t] %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
@@ -118,5 +123,12 @@ module net2axis_slave
         end
     end//always
 
+    always @(posedge ACLK) begin: PKT_ID
+        if (~ARESETN)
+            pkt_id <= 16'b1;
+        else
+        if (S_AXIS_TVALID && (state==IDLE))
+            pkt_id <= pkt_id + 1'b1;
+    end
 
 endmodule

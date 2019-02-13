@@ -19,6 +19,7 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 }
 set src_fileset [get_filesets sources_1]
 add_files -norecurse -fileset $src_fileset "$origin_dir/hdl/net2axis.v"
+add_files -norecurse -fileset $src_fileset "$origin_dir/hdl/net2axis_slave.v"
 
 if {[string equal [get_filesets -quiet sim_1] ""]} {
    create_fileset -simset sim_1
