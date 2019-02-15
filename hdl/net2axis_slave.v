@@ -100,7 +100,11 @@ module net2axis_slave
 
     always @(posedge ACLK) begin : WRITE_FILE
         if (fd && (state==IDLE)) begin
-            if (S_AXIS_TVALID) $fwrite(fd,"M: packet=%0d, delay=10\n",pkt_id);
+            if (S_AXIS_TVALID) begin
+                $fwrite(fd,"M: packet=%0d, delay=10\n",pkt_id);
+                $fwrite(fd, "%x,%x,%x\n",tdata,tkeep,tlast);
+                #1 $display("[%0t] %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
+            end
         end
         if (fd && (state==RD)) begin
             if (S_AXIS_TVALID) begin

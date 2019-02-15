@@ -72,7 +72,19 @@ class Net2AXIS(object):
 
     def parse (self):
         if self.to_pcap:
-            print
+            _tdata = list()
+            _tkeep = list()
+            _d_str = ""
+            for i in range(0,len(self.lines)):
+                l = self.lines[i]
+                if l[0] != 'M':
+                    _d,_k,_l = l.split(",")
+                    _d_str += "".join(reversed([_d[i:i+2] for i in range(0, len(_d), 2)]))
+                    if _l == "1":
+                        _tdata.append(_d_str.decode("hex"))
+                        _tkeep.append(_k)
+                        _d_str=""
+            self.parsed = _tdata
         else:
             _num_pkts = len(self.pkts)
             for p in self.pkts:
@@ -108,7 +120,6 @@ def parse_args():
     _kw = vars(_opt.parse_args())
     _file = _kw.pop("file")
     return (_file, { k : _kw[k] for k in _kw if _kw[k] != None })
-    #return _opt.parse_args()
 
 if __name__ == '__main__':
     file,opts = parse_args()
