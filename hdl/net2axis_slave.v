@@ -80,11 +80,11 @@ module net2axis_slave
         case (state)
             IDLE: begin
                 tready = 1'b1;
-                state_next = (S_AXIS_TVALID) ? RD : IDLE;
+                state_next = (tvalid) ? RD : IDLE;
             end
             RD: begin
                 tready = 1'b1;
-                state_next = (S_AXIS_TVALID && S_AXIS_TLAST) ? DONE_TEST : RD;
+                state_next = (tvalid && tlast) ? DONE_TEST : RD;
             end
             DONE_TEST: state_next = (done_flag) ? END : IDLE;
             END: state_next = END;
@@ -99,33 +99,37 @@ module net2axis_slave
     end
 
     always @(posedge ACLK) begin : WRITE_FILE
-        if (fd && (state==IDLE)) begin
-            if (S_AXIS_TVALID) begin
-                $fwrite(fd,"M: packet=%0d, delay=10\n",pkt_id);
-                $fwrite(fd, "%x,%x,%x\n",tdata,tkeep,tlast);
-                #1 $display("[%0t] %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
+        case (state)
+            IDLE: begin
+                if (tvalid) begin
+                    $display("[%0t] state=%x",$time,state);
+                    $fwrite(fd,"M: packet=%0d, delay=10\n",pkt_id);
+                    $display("[%0t] net2axis_slave:  %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
+                    $fwrite(fd, "%x,%x,%x\n",tdata,tkeep,tlast);
+                end
             end
-        end
-        if (fd && (state==RD)) begin
-            if (S_AXIS_TVALID) begin
-                $fwrite(fd, "%x,%x,%x\n",tdata,tkeep,tlast);
-            #1 $display("[%0t] %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
+            RD: begin
+                if (tvalid) begin
+                    $display("[%0t] net2axis_slave: %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
+                    $fwrite(fd, "%x,%x,%x\n",tdata,tkeep,tlast);
+                end
             end
-        end
-        if (fd && (state==END)) begin
-            $display("[%0t] Flushing output file: %s",$time,C_OUTPUTFILE);
-            $fflush(fd);
-            $fclose(fd);
-            #1 $display("[%0t] netaxis2_slave: Simulation end",$time);
-            $finish;
-        end
+            END: begin
+                $display("[%0t] netaxis2_slave: Flushing output file: %s",$time,C_OUTPUTFILE);
+                $display("[%0t] netaxis2_slave: Simulation end",$time);
+                $fflush(fd);
+                $fclose(fd);
+                $finish;
+            end
+            default: $fflush(fd);
+        endcase
     end//always
 
     always @(posedge ACLK) begin: PKT_ID
         if (~ARESETN)
             pkt_id <= 16'b1;
         else
-        if (S_AXIS_TVALID && (state==IDLE))
+        if (tvalid && (state==IDLE))
             pkt_id <= pkt_id + 1'b1;
     end
 

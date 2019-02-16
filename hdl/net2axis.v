@@ -139,11 +139,11 @@ module net2axis #(
             if (M_AXIS_TREADY) begin
                 if (state == PREP_READ_MD) begin
                     ld = $fscanf(fd,"%c: pkt=%d, delay=%d",md_flag_file, pkt_id, delay_counter_val);
-                    $display("[%0t] Starting packet %0d after delay of %0d clock cycles",$time, pkt_id, delay_counter_val);
+                    //$display("[%0t] Starting packet %0d after delay of %0d clock cycles",$time, pkt_id, delay_counter_val);
                 end else
                 if (read_pkt_data_en) begin
                     ld = $fscanf(fd, "%x,%x,%x\n",tdata,tkeep,tlast);
-                    #1 $display("[%0t] %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
+                    //#1 $display("[%0t] %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
                 end
             end
         end

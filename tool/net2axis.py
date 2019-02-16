@@ -14,7 +14,7 @@ from binascii import hexlify
 
 try:
     logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-    from scapy.all import rdpcap
+    from scapy.all import rdpcap,wrpcap,Ether
 except ImportError as e:
     sys.stderr.write("Couldn't import scapy: {0}\n".format(e))
     sys.exit(1)
@@ -79,7 +79,7 @@ class Net2AXIS(object):
                 l = self.lines[i]
                 if l[0] != 'M':
                     _d,_k,_l = l.split(",")
-                    _d_str += "".join(reversed([_d[i:i+2] for i in range(0, len(_d), 2)]))
+                    _d_str += "".join(list(reversed([_d[j:j+2] for j in range(0, len(_d), 2)])))
                     if _l == "1":
                         _tdata.append(_d_str.decode("hex"))
                         _tkeep.append(_k)
@@ -91,17 +91,21 @@ class Net2AXIS(object):
                 self.parsed.append(self._parsepkt(p))
 
     def output(self):
-        for i in range (0, len(self.parsed)):
-            _pkt = self.parsed[i]
-            _delay = self.initdelay if i == 0 else self.delay
-            self.of.write("M: pkt={0}, delay={1}\n".format((i+1),_delay))
-            for l in _pkt:
-                self.of.write("{0}\n".format(l))
+        if self.to_pcap:
+            _pkts = [ Ether(_parsed) for _parsed in self.parsed ]
+            wrpcap('output.pcap',_pkts)
+        else:
+            for i in range (0, len(self.parsed)):
+                _pkt = self.parsed[i]
+                _delay = self.initdelay if i == 0 else self.delay
+                self.of.write("M: pkt={0}, delay={1}\n".format((i+1),_delay))
+                for l in _pkt:
+                    self.of.write("{0}\n".format(l))
 
     def run(self):
         self.loadfile()
         self.parse()
-        #self.output()
+        self.output()
 
 def parse_args():
     import argparse
