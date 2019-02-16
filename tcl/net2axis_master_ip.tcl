@@ -5,28 +5,26 @@
 # Refer to  LICENSE file.                                     #
 ###############################################################
 
-set design net2axis
+set design net2axis_master
 set top $design
-#set device xc7z020clg484-1
-#set device xc7z020clg484-1
-set proj_dir ./project-ip
-set ip_version 1.00
+set proj_dir "./${design}-ip-project"
+set component_dir "./$design"
+set ip_version 1.1
 set lib_name LB
 set vendor_name "lucasbrasilino.com"
 set vendor_display_name "www.lucasbrasilino.com"
-set display_name "Net2axis master"
+set display_name "Net2AXIS master"
 set url "https://github.com/lucasbrasilino/net2axis"
 set taxonomy "{/AXIS Infrastructure}"
 
-#create_project -name ${design} -force -dir "./${proj_dir}" -part ${device} -ip
 create_project -name ${design} -force -dir "./${proj_dir}"  -ip
 set_property source_mgmt_mode All [current_project]
 set_property top ${top} [current_fileset]
-read_verilog "./hdl/net2axis.v"
+read_verilog "./hdl/net2axis_master.v"
 
 update_compile_order -fileset sources_1
 update_compile_order -fileset sim_1
-ipx::package_project
+ipx::package_project -root_dir $component_dir -generated_files -verbose
 
 set net2axis_ip [ipx::current_core]
 set_property -dict [ list \

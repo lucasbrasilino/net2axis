@@ -3,11 +3,14 @@ PCAPFILE = sim/arp.pcap
 DATAFILE = $(PCAPFILE:.pcap=.dat) 
 TOOL = tool/net2axis.py
 
-ip: $(SOURCE)
-	vivado -mode batch -source tcl/net2axis_ip.tcl
+ip: $(SOURCES)
+	vivado -mode batch -source tcl/net2axis_master_ip.tcl
+	vivado -mode batch -source tcl/net2axis_slave_ip.tcl
 
 ip-clean: clean
-	rm -rf ./project-ip
+	-rm -rf ./ip_user_files
+	-rm -rf ./net2axis_master
+	-rm -rf ./net2axis_slave
 
 sim: $(SOURCES) $(DATAFILE)
 	vivado -mode batch -source tcl/net2axis_sim.tcl -tclargs $(DATAFILE)
