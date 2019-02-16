@@ -11,7 +11,7 @@
 
 `define MD_MARKER 8'h4d
 `define NULL 0
-module net2axis #(
+module net2axis_master #(
         parameter           C_INPUTFILE           = "",
         parameter           C_TDATA_WIDTH         = 32
         ) (

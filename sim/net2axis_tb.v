@@ -63,7 +63,7 @@ module net2axis_tb;
         $finish;
     end
 
-    net2axis #(
+    net2axis_master #(
         .C_INPUTFILE      (INPUTFILE),
         .C_TDATA_WIDTH    (C_TDATA_WIDTH   )
         ) net2axis (
