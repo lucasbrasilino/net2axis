@@ -7,6 +7,7 @@ ip: $(SOURCE)
 	vivado -mode batch -source tcl/net2axis_ip.tcl
 
 ip-clean: clean
+	rm -rf *.xml
 	rm -rf ./project-ip
 
 sim: $(SOURCE) $(DATAFILE)
