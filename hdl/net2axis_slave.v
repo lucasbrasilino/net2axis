@@ -19,7 +19,8 @@ module net2axis_slave
         input wire                             ACLK,
         input wire                             ARESETN,
 
-        input  wire                            DONE,
+        output  wire                           DONE,
+        input wire                             LAST_PKT,
         input  wire                            S_AXIS_TVALID,
         input  wire  [C_TDATA_WIDTH-1 : 0]     S_AXIS_TDATA,
         input  wire  [(C_TDATA_WIDTH/8)-1 : 0] S_AXIS_TKEEP,
@@ -29,30 +30,35 @@ module net2axis_slave
 
     localparam                      IDLE = 0;
     localparam                      RD = 1;
-    localparam                      DONE_TEST = 2;
-    localparam                      END = 3;
+    localparam                      LAST_PKT_TEST = 2;
+    localparam                      WAIT_FOR_PKT = 3;
+    localparam                      END = 4;
+    localparam                      HALT = 5;
 
     localparam                      COUNTER_WIDTH = 16;
-    localparam                      STATE_WIDTH = $clog2(END);
+    localparam                      STATE_WIDTH = $clog2(HALT);
 
     integer                         fd, ld, errno;
 
     reg [STATE_WIDTH-1:0]             state, state_next;
-    wire                              done,done_flag;
+    wire                              last_pkt,last_pkt_flag;
     wire [C_TDATA_WIDTH-1 : 0]        tdata;
     wire [(C_TDATA_WIDTH/8)-1 : 0]    tkeep;
     wire                              tvalid;
     wire                              tlast;
     reg                               tready;
     reg  [15:0]                       pkt_id;
-    reg                               done_r;
+    reg                               last_pkt_r;
+    reg                               done;
+    reg  [15:0]                       wait_last_pkt_counter,wait_last_pkt_counter_next;
 
     assign tdata              = S_AXIS_TDATA;
     assign tkeep              = S_AXIS_TKEEP;
     assign tlast              = S_AXIS_TLAST;
     assign tvalid             = S_AXIS_TVALID;
     assign S_AXIS_TREADY      = tready;
-    assign done               = DONE;
+    assign last_pkt           = LAST_PKT;
+    assign DONE               = done;
 
     initial begin
         $timeformat(-9, 2, " ns", 20);
@@ -77,6 +83,8 @@ module net2axis_slave
     always @(*) begin : STATE_NEXT
         state_next = state;
         tready = 1'b0;
+        done = 1'b0;
+        wait_last_pkt_counter_next = 16'h0;
         case (state)
             IDLE: begin
                 tready = 1'b1;
@@ -84,10 +92,27 @@ module net2axis_slave
             end
             RD: begin
                 tready = 1'b1;
-                state_next = (tvalid && tlast) ? DONE_TEST : RD;
+                state_next = (tvalid && tlast) ? LAST_PKT_TEST : RD;
             end
-            DONE_TEST: state_next = (done_flag) ? END : IDLE;
-            END: state_next = END;
+            LAST_PKT_TEST:begin
+                tready = 1'b1;
+                state_next = (last_pkt_flag) ? WAIT_FOR_PKT : IDLE;
+            end
+            WAIT_FOR_PKT: begin
+                wait_last_pkt_counter_next = wait_last_pkt_counter + 1'b1;
+                if (tvalid) begin
+                   wait_last_pkt_counter_next = 0;
+                    state_next = IDLE;
+                end
+                else if (wait_last_pkt_counter == 16'h14)
+                    state_next = END;
+            end
+            END: state_next = HALT;
+            HALT: begin
+                done = 1'b1;
+                state_next = HALT;
+            end
+
         endcase
     end
 
@@ -119,9 +144,9 @@ module net2axis_slave
                 $display("[%0t] netaxis2_slave: Simulation end",$time);
                 $fflush(fd);
                 $fclose(fd);
-                $finish;
+                //$finish;
             end
-            default: $fflush(fd);
+            //default: $fflush(fd);
         endcase
     end//always
 
@@ -133,15 +158,22 @@ module net2axis_slave
             pkt_id <= pkt_id + 1'b1;
     end
 
-    assign done_flag = (done || done_r);
+    assign last_pkt_flag = (last_pkt || last_pkt_r);
     always @(posedge ACLK) begin : DONE_REG
         if (~ARESETN)
-            done_r <= 1'b0;
+            last_pkt_r <= 1'b0;
         else begin
-            if (state==DONE_TEST)
-                done_r <= 1'b0;
-            else if (done)
-                done_r <= 1'b1;
+            if (state==LAST_PKT_TEST)
+                last_pkt_r <= 1'b0;
+            else if (last_pkt)
+                last_pkt_r <= 1'b1;
         end
+    end
+
+    always @(posedge ACLK) begin : WAIT_FOR_PKT_COUNTER
+        if (~ARESETN)
+            wait_last_pkt_counter <= 0;
+        else
+            wait_last_pkt_counter <= wait_last_pkt_counter_next;
     end
 endmodule
