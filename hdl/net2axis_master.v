@@ -12,52 +12,51 @@
 `define MD_MARKER 8'h4d
 `define NULL 0
 module net2axis_master #(
-        parameter           C_INPUTFILE           = "",
-        parameter           C_TDATA_WIDTH         = 32
+        parameter           INPUTFILE           = "",
+        parameter           START_EN            = 0,
+        parameter           TDATA_WIDTH         = 32
         ) (
-        input wire        ACLK,
-        input wire        ARESETN,
+        input wire                             ACLK,
+        input wire                             ARESETN,
+
+        input wire                             START,
 
         output wire                            DONE,
         output wire                            M_AXIS_TVALID,
-        output wire  [C_TDATA_WIDTH-1 : 0]     M_AXIS_TDATA,
-        output wire  [(C_TDATA_WIDTH/8)-1 : 0] M_AXIS_TKEEP,
+        output wire  [TDATA_WIDTH-1 : 0]       M_AXIS_TDATA,
+        output wire  [(TDATA_WIDTH/8)-1 : 0]   M_AXIS_TKEEP,
         output wire                            M_AXIS_TLAST,
         input wire                             M_AXIS_TREADY
         );
 
-    function integer clog2;
-        input integer value;
-        begin
-            value = value-1;
-            for (clog2=0; value>0; clog2=clog2+1)
-                value = value>>1;
-        end
-    endfunction
+    `include "funclib.vh"
 
     localparam                      IDLE = 0;
-    localparam                      PREP_READ_MD = 1;
-    localparam                      READ_MD = 2;
-    localparam                      DELAY = 3;
-    localparam                      WR = 4;
-    localparam                      POST_WR = 5;
-    localparam                      LAST = 6;
+    localparam                      WAIT_START = 1;
+    localparam                      PREP_READ_MD = 2;
+    localparam                      READ_MD = 3;
+    localparam                      DELAY = 4;
+    localparam                      WR = 5;
+    localparam                      POST_WR = 6;
+    localparam                      LAST = 7;
 
     localparam                      COUNTER_WIDTH = 16;
     localparam                      STATE_WIDTH = clog2(LAST);
 
+    reg [127:0]                     log_msg, fmt_msg;
     reg [COUNTER_WIDTH-1 : 0]       delay_counter, delay_counter_val;
     wire [COUNTER_WIDTH-1 : 0]      delay_counter_next;
     wire                            delay_counter_exp;
     reg                             eof;
     wire                            read_pkt_data_en;
+    wire                            start;
     integer                         errno;
     reg  [1024:0]                   strerr;
 
     reg [STATE_WIDTH-1:0]            state, state_next;
     reg                              done;
-    reg [C_TDATA_WIDTH-1 : 0]        tdata;
-    reg [(C_TDATA_WIDTH/8)-1 : 0]    tkeep;
+    reg [TDATA_WIDTH-1 : 0]          tdata;
+    reg [(TDATA_WIDTH/8)-1 : 0]      tkeep;
     reg                              tvalid;
     reg                              tlast;
 
@@ -79,14 +78,23 @@ module net2axis_master #(
     assign md_flag            =     (state == READ_MD) ? md_flag_file : 8'h00;
     assign md_flag_found      =     (md_flag == `MD_MARKER);
 
+    /*START PIN */
+    generate
+        if (START_EN == 0)
+            assign start = 1'b1;
+        else
+            assign start = START;
+    endgenerate
+
+
     initial begin
         $timeformat(-9, 2, " ns", 20);
-        if (C_INPUTFILE == "") begin
+        if (INPUTFILE == "") begin
             $display("File opening error: inputfile NULL!");
             $finish;
         end
         else begin
-            fd = $fopen(C_INPUTFILE,"r");
+            fd = $fopen(INPUTFILE,"r");
             if (fd == `NULL) begin
                 errno = $ferror(fd,strerr);
                 $display("File opening error: errno=%d,strerr=%s",errno,strerr);
@@ -103,8 +111,9 @@ module net2axis_master #(
         tvalid = 1'b0;
         done = 1'b0;
         case (state)
-            IDLE: state_next = (M_AXIS_TREADY) ? PREP_READ_MD : IDLE;
-            PREP_READ_MD: state_next = (M_AXIS_TREADY) ? READ_MD :  IDLE;
+            IDLE: state_next = (start) ? WAIT_START : IDLE;
+            WAIT_START: state_next = (M_AXIS_TREADY) ? PREP_READ_MD : WAIT_START;
+            PREP_READ_MD: state_next = (M_AXIS_TREADY) ? READ_MD :  WAIT_START;
             READ_MD: state_next = (md_flag_found) ? DELAY : READ_MD;
             DELAY: state_next = (delay_counter_exp) ? WR : DELAY;
             WR: begin
@@ -139,11 +148,11 @@ module net2axis_master #(
             if (M_AXIS_TREADY) begin
                 if (state == PREP_READ_MD) begin
                     ld = $fscanf(fd,"%c: pkt=%d, delay=%d",md_flag_file, pkt_id, delay_counter_val);
-                    //$display("[%0t] Starting packet %0d after delay of %0d clock cycles",$time, pkt_id, delay_counter_val);
+                    #1 $display("[%0t] Net2axis master: Starting packet %0d after delay of %0d clock cycles",$time, pkt_id, delay_counter_val);
                 end else
                 if (read_pkt_data_en) begin
                     ld = $fscanf(fd, "%x,%x,%x\n",tdata,tkeep,tlast);
-                    //#1 $display("[%0t] %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
+                    #1 $display("[%0t] Net2axis master: %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
                 end
             end
         end
@@ -156,7 +165,7 @@ module net2axis_master #(
         if (~eof) begin
             if ($feof(fd)) begin
                 eof <= 1'b1;
-                /* $display("[%0t] End of file",$time); */
+                $display("[%0t] Net2axis master: End of file",$time);
                 $fclose(fd);
             end
         end

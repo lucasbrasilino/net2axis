@@ -19,7 +19,6 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 }
 set src_fileset [get_filesets sources_1]
 add_files -norecurse -fileset $src_fileset "$origin_dir/hdl/net2axis_master.v"
-add_files -norecurse -fileset $src_fileset "$origin_dir/hdl/net2axis_slave.v"
 
 if {[string equal [get_filesets -quiet sim_1] ""]} {
    create_fileset -simset sim_1
@@ -27,7 +26,7 @@ if {[string equal [get_filesets -quiet sim_1] ""]} {
 
 set sim_fileset [get_filesets sim_1]
 set sim_files [glob $origin_dir/sim/*]
-add_files -norecurse -fileset $sim_fileset $sim_files
+add_files -norecurse -scan_for_includes -fileset $sim_fileset $sim_files
 set_property -name "xsim.compile.xvlog.more_options" -value "-d DATAFILE=${data_file}" -objects $sim_fileset
 set_property -name "xsim.simulate.runtime" -value "all" -objects $sim_fileset
 set_property -name "top" -value "net2axis_tb" -objects $sim_fileset

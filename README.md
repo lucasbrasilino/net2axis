@@ -53,7 +53,7 @@ The project dependencies are:
 * Scapy 2.X
 
 The provided testbed project example depends on Xilinx Vivado (tested on version
-`2017.2`). However, net2axis testbench and module will probably simulate in others HDLs
+`2017.2`). However, net2axis testbench and module will probably simulate in others HDL
 tools as well. 
 
 ## Usage
@@ -104,14 +104,14 @@ update_ip_catalog -rebuild
 
 You should now be able to instantiate a net2axis IP in IPI, that looks like:
 
-![Net2axis IP](figs/IP_1.jpg)
+![Net2axis IP](figs/IP_2.jpg)
 
 Finally, a DATA file must be configured in the net2axis IP. Right-click over it,
-select `Customize Block` and add the (preferably) absolute path in the `C
-Inputfile` field, or execute:
+select `Customize Block` and add the (preferably) absolute path in the
+`Inputfile` field, or execute:
 
 ```tcl
-set_property CONFIG.C_INPUTFILE {/home/user/net2axis/arp.dat} [get_bd_cells net2axis_0]
+set_property CONFIG.INPUTFILE {/home/user/net2axis/arp.dat} [get_bd_cells net2axis_0]
 ```
 
 #### Vivado's block design
@@ -127,7 +127,7 @@ source tcl/net2axis_bd.tcl
 
 And the following Block design will be created:
 
-![Net2axis Block Design](figs/BD_1.jpg)
+![Net2axis Block Design](figs/BD_2.jpg)
 
 And don't forget to configure DATA file, as described earlier.
 
@@ -136,14 +136,17 @@ It is pretty straightforward to instantiate the net2axis verilog module. Its
 parameters and ports are:
 
 * Parameters:
-  * `C_INPUTFILE`: (_Mandatory_) : Path to the intermediate DATA file. Absolute path is recommended. 
-  * `C_TDATA_WIDTH`: (_Optional_) : AXI-Stream TDATA bus width in bits. Default 32.
+  * `INPUTFILE`: (_Mandatory_) : Path to the intermediate DATA file. Absolute path is recommended. 
+  * `TDATA_WIDTH`: (_Optional_) : AXI-Stream TDATA bus width in bits. Default `32`.
+  * `START_EN`: (_Optional_) : Enables `START` port. **When** `START` port is asserted, tells Net2axis master to send packets. Default `0` (starts sending packets right away). Set to `1` to enable port.
+	
 * Ports:
   * `ACLK`: Clock
   * `ARESETN`: Active-low reset
   * `M_AXIS_*`: Master AXI-Stream interface
   * `DONE`: Active-high **done** signal. Goes high when after the last packet is
     transmitted, i.e., the model reaches the end of DATA file.
+  * `START`: Active-high **start** signal. When `START_EN` parameter is `1`, and this port is asserted, starts sending packets.
 	
 See `sim/net2axis_tb.v` as an instantiation example.
 
@@ -198,11 +201,11 @@ $ ./tool/net2axis.py tcp.pcap
 ```
 
 Finally, instantiate `net2axis` module in your Verilog code using (preferably) the absolute path to
-the intermediate file as argument of `C_INPUTFILE` parameter:
+the intermediate file as argument of `INPUTFILE` parameter:
 
 ```verilog
     net2axis #(
-        .C_INPUTFILE      ("/home/user/net2axis/tcp.dat"),
+        .INPUTFILE      ("/home/user/net2axis/tcp.dat"),
         ) net2axis_0 (
         .ACLK             (ACLK            ),
         .ARESETN          (ARESETN         ),

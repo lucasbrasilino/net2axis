@@ -17,21 +17,23 @@
 
 module net2axis_tb;
 
-    localparam C_TDATA_WIDTH = 32;
+    localparam TDATA_WIDTH = 32;
 
     localparam HALF_CORE_PERIOD = 5; // 100Mhz
     localparam PERIOD = HALF_CORE_PERIOD*2;
     localparam INPUTFILE = `TO_STRING(`DATAFILE);
+    localparam HARD_TIMEOUT = 2000;
 
     reg                             ACLK;
     reg                             ARESETN;
 
     wire                            M_AXIS_TVALID;
-    wire  [C_TDATA_WIDTH-1 : 0]     M_AXIS_TDATA;
-    wire  [(C_TDATA_WIDTH/8)-1 : 0] M_AXIS_TKEEP;
+    wire  [TDATA_WIDTH-1 : 0]       M_AXIS_TDATA;
+    wire  [(TDATA_WIDTH/8)-1 : 0]   M_AXIS_TKEEP;
     wire                            M_AXIS_TLAST;
     reg                             M_AXIS_TREADY;
     wire                            DONE;
+    reg                             START;
 
     initial begin
         $timeformat(-9, 2, " ns", 20);
@@ -55,19 +57,35 @@ module net2axis_tb;
     end
 
     initial begin
+        START = 1'b0;
+        wait (ARESETN == 1'b1);
+        #(PERIOD * 15);
+        START = 1'b1;
+    end
+
+    initial begin
+        wait (ARESETN == 1'b1);
+        #(PERIOD * HARD_TIMEOUT);
+        $display("[%0t] Hard timeout reached. Simulation finished",$time);
+        $finish;
+    end
+
+    initial begin
         wait (DONE == 1'b1);
         #(PERIOD * 10);
         $display("[%0t] Simulation finished",$time);
         $finish;
     end
 
-    net2axis #(
-        .C_INPUTFILE      (INPUTFILE),
-        .C_TDATA_WIDTH    (C_TDATA_WIDTH   )
+    net2axis_master #(
+        .INPUTFILE      (INPUTFILE         ),
+        .TDATA_WIDTH    (TDATA_WIDTH       ),
+        .START_EN       (1                 )
         ) net2axis (
         .ACLK             (ACLK            ),
         .ARESETN          (ARESETN         ),
         .DONE             (DONE            ),
+        .START            (START           ),
         .M_AXIS_TVALID    (M_AXIS_TVALID   ),
         .M_AXIS_TDATA     (M_AXIS_TDATA    ),
         .M_AXIS_TKEEP     (M_AXIS_TKEEP    ),

@@ -14,7 +14,7 @@ set_property -dict [ list \
 ] $clk
 set sync_rst [ create_bd_port -dir O -type rst sync_rst ]
 
-set net2axis_0 [ create_bd_cell -type ip -vlnv lucasbrasilino.com:LB:net2axis:1.00 net2axis_0 ]
+set net2axis_0 [ create_bd_cell -type ip -vlnv lucasbrasilino.com:LB:net2axis_master:1.1 net2axis_0 ]
 set_property -dict [ list \
     CONFIG.C_INPUTFILE {} \
 ] $net2axis_0
