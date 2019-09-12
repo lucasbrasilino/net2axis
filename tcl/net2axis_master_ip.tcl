@@ -39,6 +39,27 @@ set_property -dict [ list \
     description $display_name \
 ] $net2axis_ip
 
+set_property SUPPORTED_FAMILIES { \
+  artix7 Pre-Production \
+  artix7l Pre-Production \
+  kintex7 Pre-Production \
+  kintex7l Pre-Production \
+  kintexu Pre-Production \
+  kintexuplus Pre-Production \
+  virtex7 Pre-Production \
+  virtexu Pre-Production \
+  virtexuplus Pre-Production \
+  zynq Pre-Production \
+  zynquplus Pre-Production \
+  aartix7 Pre-Production \
+  azynq Pre-Production \
+  qartix7 Pre-Production \
+  qkintex7 Pre-Production \
+  qkintex7l Pre-Production \
+  qvirtex7 Pre-Production \
+  qzynq Pre-Production \
+} $net2axis_ip
+
 set aclk_interf [ipx::get_bus_interfaces ACLK -of_objects $net2axis_ip]
 set aclk_interf_param [ipx::add_bus_parameter ASSOCIATED_BUSIF $aclk_interf]
 set_property value M_AXIS $aclk_interf_param
