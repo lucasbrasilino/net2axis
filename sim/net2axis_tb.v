@@ -21,6 +21,7 @@ module net2axis_tb;
 
     localparam HALF_CORE_PERIOD = 5; // 100Mhz
     localparam PERIOD = HALF_CORE_PERIOD*2;
+    localparam HARD_FINISH = 100;
     localparam INPUTFILE = `TO_STRING(`DATAFILE);
     localparam OUTPUTFILE = `TO_STRING(output.dat);
     reg                             ACLK;
@@ -30,7 +31,7 @@ module net2axis_tb;
     wire  [C_TDATA_WIDTH-1 : 0]     M_AXIS_TDATA;
     wire  [(C_TDATA_WIDTH/8)-1 : 0] M_AXIS_TKEEP;
     wire                            M_AXIS_TLAST;
-    wire                            M_AXIS_TREADY;
+    reg                             M_AXIS_TREADY;
     wire                            DONE;
 
     initial begin
@@ -47,14 +48,12 @@ module net2axis_tb;
         ARESETN = 1'b1;
     end
 
-    /*
     initial begin
-        M_AXIS_TREADY = 1'b0;
         wait (ARESETN == 1'b1);
-        #(PERIOD * 10);
-        M_AXIS_TREADY = 1'b1;
+        #(PERIOD * HARD_FINISH) $display("[%0t] Hard finish reached!",$time);
+        $finish;
     end
-*/
+
 
     initial begin
         wait (DONE == 1'b1);
@@ -63,6 +62,27 @@ module net2axis_tb;
         $finish;
     end
 
+    wire clk;
+    wire sync_rst;
+
+    initial begin
+        M_AXIS_TREADY = 1'b0;
+        wait (sync_rst == 1'b1);
+        #(PERIOD * 2);
+        M_AXIS_TREADY = 1'b1;
+    end
+
+    net2axis_bd_wrapper DUT
+        (.DONE(DONE),
+            .M_AXIS_tdata(M_AXIS_TDATA),
+            .M_AXIS_tkeep(M_AXIS_TKEEP),
+            .M_AXIS_tlast(M_AXIS_TLAST),
+            .M_AXIS_tready(M_AXIS_TREADY),
+            .M_AXIS_tvalid(M_AXIS_TVALID),
+            .clk(clk),
+            .sync_rst(sync_rst));
+
+    /*
     net2axis_master #(
         .C_INPUTFILE      (INPUTFILE),
         .C_TDATA_WIDTH    (C_TDATA_WIDTH   )
@@ -74,7 +94,8 @@ module net2axis_tb;
         .M_AXIS_TDATA     (M_AXIS_TDATA    ),
         .M_AXIS_TKEEP     (M_AXIS_TKEEP    ),
         .M_AXIS_TLAST     (M_AXIS_TLAST    ),
-        .M_AXIS_TREADY    (M_AXIS_TREADY   ));
+        .M_AXIS_TREADY    (M_AXIS_TREADY));
+
 
     net2axis_slave #(
         .C_OUTPUTFILE   (OUTPUTFILE  ),
@@ -88,5 +109,5 @@ module net2axis_tb;
         .S_AXIS_TKEEP   (M_AXIS_TKEEP  ),
         .S_AXIS_TLAST   (M_AXIS_TLAST  ),
         .S_AXIS_TREADY  (M_AXIS_TREADY ));
-
+*/
 endmodule
