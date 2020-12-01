@@ -46,8 +46,8 @@ module net2axis_master #(
 
     localparam                      STATE_WIDTH = clog2(ST_DONE);
 
-    reg [C_COUNTER_WIDTH-1 : 0]       delay_counter, file_delay_counter;
-    wire [C_COUNTER_WIDTH-1 : 0]      delay_counter_next;
+    reg  [C_COUNTER_WIDTH-1 : 0]    delay_counter, file_delay_counter;
+    wire [C_COUNTER_WIDTH-1 : 0]    delay_counter_next;
     wire                            delay_counter_exp;
     reg                             eof;
     wire                            read_pkt_data_en;
@@ -73,6 +73,7 @@ module net2axis_master #(
     assign M_AXIS_TKEEP       =     tkeep;
     assign M_AXIS_TLAST       =     tlast;
     assign M_AXIS_TVALID      =     tvalid;
+    assign INTER_PKT_DELAY    =     (state == ST_DELAY);
 
     assign delay_counter_exp  =     (delay_counter == 0);
     assign read_pkt_data_en   =     (delay_counter_exp || (state == ST_WR));
@@ -105,10 +106,17 @@ module net2axis_master #(
         state_resume_next = ST_WAIT_FOR_START;
     end
 
-    always @(*) begin: FILE_OPS
+    always @(posedge ACLK) begin: FILE_OPS
         case (state)
             ST_READ_MD: begin
                 ld = $fscanf(fd,"%c: pkt=%d, delay=%d",md_flag_file, file_pkt_id, file_delay_counter);
+            end
+            ST_WR: begin
+                $display("[%0t] entered ST_WR state",$time);
+                if (M_AXIS_TREADY) begin
+                    ld = $fscanf(fd, "%x,%x,%x\n",tdata,tkeep,tlast);
+                    #1 $display("[%0t] %x | %x | %x | %x",$time,tvalid, tdata,tkeep,tlast);
+                end
             end
         endcase
     end
@@ -117,11 +125,17 @@ module net2axis_master #(
         case (state)
             ST_READ_MD: begin
                 pkt_id <= file_pkt_id;
-                delay_counter <= file_delay_counter;
             end
         endcase
     end
 
+    always @(posedge ACLK) begin: DELAY
+        case (state)
+            ST_RESET: delay_counter <= 0;
+            ST_READ_MD: delay_counter <= file_delay_counter;
+            ST_DELAY: delay_counter <= delay_counter_next;
+        endcase
+    end
     /*
     always @(posedge ACLK) begin : READ_FILE
         if ((fd != `NULL) && ~eof) begin
@@ -160,7 +174,8 @@ module net2axis_master #(
             ST_RESET: state_next = ST_DISABLED;
             ST_DISABLED: state_next = (ENABLE) ? state_resume_next : ST_DISABLED;
             ST_WAIT_FOR_START: state_next = (START) ? ST_READ_MD : ST_WAIT_FOR_START;
-            ST_READ_MD: state_next = (md_flag_found) ? ST_DELAY : ST_READ_MD;
+            ST_READ_MD: state_next = (md_flag_found && (file_delay_counter == 0)) ? ST_WR :
+                (md_flag_found) ? ST_DELAY : ST_READ_MD;
             ST_DELAY: state_next = (delay_counter_exp) ? ST_WR : ST_DELAY;
             ST_WR: begin
                 tvalid = 1'b1;
