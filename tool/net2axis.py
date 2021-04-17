@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
    ISC License (ISC)
-   Copyright 2018 Lucas Brasilino <lucas.brasilino@gmail.com>
+   Copyright 2018-2021 Lucas Brasilino <lucas.brasilino@gmail.com>
 
    Refer to  LICENSE file.
 """
@@ -14,7 +14,8 @@ from binascii import hexlify
 
 try:
     logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-    from scapy.all import rdpcap,wrpcap,Ether
+    from scapy.all import rdpcap,wrpcap,raw
+    from scapy.error import *
 except ImportError as e:
     sys.stderr.write("Couldn't import scapy: {0}\n".format(e))
     sys.exit(1)
@@ -29,9 +30,11 @@ class Net2AXIS(object):
         if not self.file:
             raise ValueError("Input file not specified")
         self.extension = 'pcap' if self.to_pcap else 'dat'
-        self.endianness = self._check_endianness(self.endianness)
+        self.endianness = self.__check_endianness(self.endianness)
         self.pkts = None
         self.parsed = list()
+        self.datawidth_bytes = int(self.datawidth/8)
+        self.keepwidth_nibbles = int(self.datawidth_bytes/4)
         self.outputfile = self.file.split(".")[0]+"."+self.extension
         try:
             self.of = open(self.outputfile,"w")
@@ -39,73 +42,76 @@ class Net2AXIS(object):
             sys.stderr.write("Couldn't write file: {0}\n".format(e))
             sys.exit(1)
 
-    def loadfile (self):
-        if self.to_pcap:
-            self.lines = list()
-            with open (self.file) as file:
-                for line in file:
-                    self.lines.append(line.strip())
-        else:
-            self.pkts = rdpcap (self.file)
+    def __get_abspath(self,file):
+        return abspath(file)
 
-    def _check_endianness(self, _end):
+    def __get_out_file(self):
+        return self.in_file.split(".")[0]+"."+self.out_extension
+
+    def __check_endianness(self, _end):
         if not _end in Net2AXIS.endianness.keys():
             raise ValueError ("Invalid endianness: {0}".format(_end))
         return Net2AXIS.endianness[_end]
-        
-    def _switch_endianness(self,_words):
-        _ret = list()
-        for _word in _words:
-            _ret.append("".join(reversed([_word[i:i+2] for i in range(0, len(_word), 2)])))
-        return _ret
-            
-    def _parsepkt(self, pkt):
-        _content = hexlify(str(pkt))
-        _nibble_offset = (self.datawidth/4)
-        _tdata = [_content[i:i+_nibble_offset] for i in range(0,len(_content), _nibble_offset)]
-        if self.endianness == Net2AXIS.END_LITTLE:
-            _tdata = self._switch_endianness(_tdata)
-        _tkeep = [str(hex(2**(len(w)/2)-1)).split("x",1)[1] for w in _tdata]
-        _tlast = ['0' for w in _tdata[:-1]]
-        _tlast.append('1')
-        return [_tdata[i]+','+_tkeep[i]+','+_tlast[i] for i in range(0,len(_tdata))]
+
+    def loadfile (self):
+        pass
 
     def parse (self):
-        if self.to_pcap:
-            _tdata = list()
-            _tkeep = list()
-            _d_str = ""
-            for i in range(0,len(self.lines)):
-                l = self.lines[i]
-                if l[0] != 'M':
-                    _d,_k,_l = l.split(",")
-                    _d_str += "".join(list(reversed([_d[j:j+2] for j in range(0, len(_d), 2)])))
-                    if _l == "1":
-                        _tdata.append(_d_str.decode("hex"))
-                        _tkeep.append(_k)
-                        _d_str=""
-            self.parsed = _tdata
-        else:
-            _num_pkts = len(self.pkts)
-            for p in self.pkts:
-                self.parsed.append(self._parsepkt(p))
-
-    def output(self):
-        if self.to_pcap:
-            _pkts = [ Ether(_parsed) for _parsed in self.parsed ]
-            wrpcap('output.pcap',_pkts)
-        else:
-            for i in range (0, len(self.parsed)):
-                _pkt = self.parsed[i]
-                _delay = self.initdelay if i == 0 else self.delay
-                self.of.write("M: pkt={0}, delay={1}\n".format((i+1),_delay))
-                for l in _pkt:
-                    self.of.write("{0}\n".format(l))
+        pass
 
     def run(self):
         self.loadfile()
         self.parse()
-        self.output()
+        self.storefile()
+
+class Net2AXISMaster(Net2AXIS):
+
+    def __init__(self,**kwargs):
+        super(Net2AXISMaster,self).__init__(**kwargs)
+        self.out_extension = 'dat'
+        self.in_file = self._Net2AXIS__get_abspath(file)
+        self.out_file = self._Net2AXIS__get_out_file()
+
+    def __parsepkt(self,pkt):
+        __content = raw(pkt)
+        __tdata = [__content[0+i:self.datawidth_bytes+i] for i in range(0,len(__content),self.datawidth_bytes)]
+        __tkeep = [format(2**len(__word)-1,'x') for __word in __tdata ]
+        return zip(__tdata,__tkeep)
+
+    def loadfile(self):
+        try:
+            self.pkts = rdpcap (self.in_file)
+        except (Scapy_Exception,FileNotFoundError) as e:
+            sys.stderr.write("Couldn't read pcap file: {0}\n".format(self.in_file))
+            sys.stderr.write("{0}\n".format(e))
+            sys.exit(1)
+
+    def parse(self):
+        for p in self.pkts:
+            self.parsed.append(self.__parsepkt(p))
+
+    def dump(self):
+        for w in self.parsed:
+            print(f'{list(w)}')
+
+    def storefile(self):
+        try:
+            #print(f'{self.out_file}')
+            self.of = open(self.out_file,"w")
+        except IOError as e:
+            sys.stderr.write("Couldn't write file: {0}\n".format(e))
+            sys.exit(1)
+        for o in self.parsed:
+            __pkt = list(o)
+            __last = len(__pkt)-1
+            __i = 0
+            for t in __pkt:
+                __d = bytes(t[0])
+                __k = t[1]
+                self.of.write(f'{__d.hex()}{__k}')
+                __last_str = '1' if __i == __last else '0'
+                __i += 1
+                self.of.write(f'{__last_str}\n')
 
 def parse_args():
     import argparse
@@ -127,5 +133,5 @@ def parse_args():
 
 if __name__ == '__main__':
     file,opts = parse_args()
-    net = Net2AXIS(file=file,**opts)
+    net = Net2AXISMaster(file=file,**opts)
     net.run()
