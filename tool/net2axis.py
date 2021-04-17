@@ -96,7 +96,6 @@ class Net2AXISMaster(Net2AXIS):
 
     def storefile(self):
         try:
-            #print(f'{self.out_file}')
             self.of = open(self.out_file,"w")
         except IOError as e:
             sys.stderr.write("Couldn't write file: {0}\n".format(e))
