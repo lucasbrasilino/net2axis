@@ -75,7 +75,7 @@ class Net2AXISMaster(Net2AXIS):
     def __parsepkt(self,pkt):
         __content = raw(pkt)
         __tdata = [__content[0+i:self.datawidth_bytes+i] for i in range(0,len(__content),self.datawidth_bytes)]
-        __tkeep = [format(2**len(__word)-1,'x') for __word in __tdata ]
+        __tkeep = [format(2**len(__word)-1,'x').zfill(int(self.datawidth_bytes/4)) for __word in __tdata ]
         return zip(__tdata,__tkeep)
 
     def loadfile(self):
