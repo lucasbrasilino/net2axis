@@ -1,15 +1,15 @@
-###############################################################
-# ISC License (ISC)                                           #
-# Copyright 2018 Lucas Brasilino <lucas.brasilino@gmail.com>  #
-#                                                             #
-# Refer to  LICENSE file.                                     #
-###############################################################
+####################################################################
+# ISC License (ISC)                                                #
+# Copyright 2018-2021 Lucas Brasilino <lucas.brasilino@gmail.com>  #
+#                                                                  #
+# Refer to  LICENSE file.                                          #
+####################################################################
 
 set design net2axis_master
 set top $design
 set proj_dir "./${design}-ip-project"
 set component_dir "./$design"
-set ip_version 1.1
+set ip_version 2.0
 set lib_name LB
 set vendor_name "lucasbrasilino.com"
 set vendor_display_name "www.lucasbrasilino.com"
