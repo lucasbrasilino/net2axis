@@ -46,7 +46,8 @@ module net2axis_master #(
     localparam  COUNTER_WIDTH = (INITIAL_DELAY > INTER_PKT_DELAY) ? clog2(INITIAL_DELAY) : clog2(INTER_PKT_DELAY);
     reg  [ 0 : MEM_WIDTH-1]             mem [ 0 : INPUTFILE_LEN-1];
     wire [ 0 : MEM_WIDTH-1]             mem_curr; 
-    reg  [ clog2(INPUTFILE_LEN-1) : 0 ] mem_ptr; 
+    reg  [ clog2(INPUTFILE_LEN-1) : 0 ] mem_ptr, mem_ptr_next;
+    wire                                mem_ptr_last;
     reg  [COUNTER_WIDTH-1 : 0]      delay_counter;
     wire [COUNTER_WIDTH-1 : 0]      delay_counter_next;
     wire                            delay_counter_exp;
@@ -57,9 +58,10 @@ module net2axis_master #(
     wire [TDATA_WIDTH-1 : 0]        tdata;
     wire [TKEEP_WIDTH-1 : 0]        tkeep;
     wire                             tvalid;
-    wire  [3:0]                           tlast;
+    wire                             tlast;
 
     assign mem_curr           =     mem[mem_ptr];
+    assign mem_ptr_last       =     (mem_ptr == INPUTFILE_LEN-1);
     assign delay_counter_next =     delay_counter - 1;
     assign M_AXIS_TDATA       =     tdata;
     assign M_AXIS_TKEEP       =     tkeep;
@@ -106,6 +108,13 @@ module net2axis_master #(
         end
     end
 
+    always @(*) begin
+        casez ({ENABLE,M_AXIS_TREADY,mem_ptr_last})
+            3'b0??, 3'b100, 3'b101: mem_ptr_next = mem_ptr;
+            3'b110: mem_ptr_next = mem_ptr + 1'b1;
+            3'b111: mem_ptr_next = 0;
+        endcase
+    end
     assign tvalid = (state == ST_ENABLED) && ENABLE;
     always @(posedge ACLK) begin
         if (~ARESETN) begin
@@ -113,8 +122,7 @@ module net2axis_master #(
         end else begin
         case (state)
         ST_SOFT_RESET: mem_ptr <= 0;
-        ST_ENABLED: mem_ptr <= (ENABLE && M_AXIS_TREADY) ? (mem_ptr == INPUTFILE_LEN-1) ? 0 : mem_ptr + 1'b1 
-                                                                                          : mem_ptr;
+        ST_ENABLED: mem_ptr <= mem_ptr_next;
         endcase
         end
     end
